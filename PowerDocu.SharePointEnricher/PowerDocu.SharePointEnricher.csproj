@@ -1,0 +1,36 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Standalone post-processing tool. Deliberately NOT added to PowerDocu.sln's
+    build-everything chain and NOT referenced by any existing project, per the
+    plan's isolation requirement: SharePoint enrichment must stay fully separate
+    from the core PowerDocu/PowerDocu.Common pipeline so upstream updates stay
+    easy to pull and this work can never break core generation.
+
+    References PowerDocu.Common (for HtmlBuilder/MarkdownBuilder/Expression/etc.)
+    and the Flow/App documenters' existing public ParseFlows()/ParseApps() entry
+    points, read-only.
+  -->
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <DebugType>embedded</DebugType>
+    <RootNamespace>PowerDocu.SharePointEnricher</RootNamespace>
+    <AssemblyName>PowerDocu.SharePointEnricher</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\modules\PowerDocu.Common\PowerDocu.Common\PowerDocu.Common.csproj" />
+    <ProjectReference Include="..\PowerDocu.FlowDocumenter\PowerDocu.FlowDocumenter.csproj" />
+    <ProjectReference Include="..\PowerDocu.AppDocumenter\PowerDocu.AppDocumenter.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="Resources\FetchSharePointData.ps1">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
+</Project>
