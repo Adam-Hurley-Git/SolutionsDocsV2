@@ -14,21 +14,26 @@ namespace PowerDocu.SharePointEnricher
     /// comment for why.
     ///
     /// Usage:
-    ///   PowerDocu.SharePointEnricher &lt;solution.zip&gt; &lt;existing-output-folder&gt; [sampleLimit]
+    ///   PowerDocu.SharePointEnricher &lt;solution.zip&gt; &lt;existing-output-folder&gt; &lt;clientId&gt; [sampleLimit]
+    ///
+    /// clientId is the Application (client) ID from a one-time Entra ID app
+    /// registration - see HANDOFF.md. Not a secret; safe as a plain argument.
     /// </summary>
     public static class Program
     {
         public static int Main(string[] args)
         {
-            if (args.Length < 2)
+            if (args.Length < 3)
             {
-                Console.Error.WriteLine("Usage: SolutionsDocs.SharePointEnricher <solution.zip> <existing-output-folder> [sampleLimit]");
+                Console.Error.WriteLine("Usage: PowerDocu.SharePointEnricher <solution.zip> <existing-output-folder> <clientId> [sampleLimit]");
+                Console.Error.WriteLine("  clientId: Application (client) ID from a one-time Entra ID app registration - see HANDOFF.md.");
                 return 1;
             }
 
             string zipPath = args[0];
             string outputFolder = args[1];
-            int sampleLimit = args.Length > 2 && int.TryParse(args[2], out int parsed) ? parsed : 20;
+            string clientId = args[2];
+            int sampleLimit = args.Length > 3 && int.TryParse(args[3], out int parsed) ? parsed : 20;
 
             if (!File.Exists(zipPath))
             {
@@ -71,8 +76,7 @@ namespace PowerDocu.SharePointEnricher
                 return 0;
             }
 
-            string scriptPath = Path.Combine(AppContext.BaseDirectory, "Resources", "FetchSharePointData.ps1");
-            var fetcher = new SharePointDataFetcher(scriptPath, sampleLimit);
+            var fetcher = new SharePointDataFetcher(clientId, sampleLimit);
             var sites = fetcher.FetchLive(confidentRequests.Select(r => (r.SiteUrl, r.ListIdOrName)));
 
             if (sites.Count == 0)

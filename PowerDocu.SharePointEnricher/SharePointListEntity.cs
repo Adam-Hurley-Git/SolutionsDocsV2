@@ -9,7 +9,7 @@ namespace PowerDocu.SharePointEnricher
         public List<SharePointColumnEntity> Columns = new List<SharePointColumnEntity>();
 
         /// <summary>
-        /// Capped sample of rows (default 20 — see FetchSharePointData.ps1's -SampleLimit),
+        /// Capped sample of rows (default 20 — see SharePointDataFetcher's sampleLimit),
         /// not a full data dump. Each dictionary is one row, keyed by column internal name.
         /// </summary>
         public List<Dictionary<string, object>> SampleItems = new List<Dictionary<string, object>>();

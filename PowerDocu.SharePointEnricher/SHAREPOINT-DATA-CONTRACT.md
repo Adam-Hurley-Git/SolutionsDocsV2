@@ -1,58 +1,41 @@
-# SharePoint fetch data contract
+# SharePoint fetch mechanism
 
-`Resources\FetchSharePointData.ps1` is invoked once per enrichment run, given every
-distinct site URL + list ID/name pair detected by `SharePointReferenceDetector`, and
-must print exactly one JSON document to stdout matching this shape:
+`SharePointDataFetcher.cs` fetches directly via SharePoint CSOM
+(`Microsoft.SharePoint.Client`), authenticating interactively through
+PnP.Framework/MSAL - no `pwsh.exe`, no `PnP.PowerShell` module, nothing to
+install to run this exe. This replaced an earlier version that shelled out to
+a PowerShell script (`Resources\FetchSharePointData.ps1`, now removed) which
+did the same fetch via `PnP.PowerShell` cmdlets; the shape of what gets
+fetched is unchanged, only the mechanism is.
 
-```json
-[
-  {
-    "siteUrl": "https://contoso.sharepoint.com/sites/Example",
-    "lists": [
-      {
-        "title": "VisitLog",
-        "id": "a3c6dce5-185f-4ca8-beaa-122e81958a90",
-        "columns": [
-          {
-            "internalName": "Title",
-            "displayName": "Title",
-            "type": "Text",
-            "required": true,
-            "choices": []
-          }
-        ],
-        "sampleItems": [
-          { "Title": "Example row", "Id": 1 }
-        ]
-      }
-    ]
-  }
-]
-```
+For each distinct site URL, one `AuthenticationManager.CreateWithInteractiveLogin`
+sign-in (grouped before connecting, so a solution referencing the same site
+from multiple lists/flows still only prompts once per site). For each
+distinct list requested on that site: the list's title/ID, its non-hidden
+fields (internal name, display name, type, required, and choices for
+Choice/MultiChoice fields), and a capped sample of rows.
 
-`SharePointDataFetcher.cs` deserializes stdout against this exact contract into
-`SharePointSiteEntity`/`SharePointListEntity`/`SharePointColumnEntity` objects. The
-fetcher takes a `TextReader` as its real input — the live `pwsh.exe` process's stdout
-in normal use, or any other `TextReader` producing this same JSON shape when the
-caller needs to inject output some other way — but per the plan, validating this tool
-means running the real script against a real site, not substituting fixture data.
+## One requirement no language choice removes
+
+Since September 2024, Microsoft retired the shared multi-tenant "PnP
+Management Shell" Entra ID app that let `Connect-PnPOnline -Interactive`
+(and, equally, `AuthenticationManager.CreateWithInteractiveLogin`) work with
+zero setup. Every tenant now needs its **own** Entra ID app registration - a
+one-time admin action - and its Client ID passed to this tool as the
+`clientId` argument. This is a Microsoft platform requirement, not a
+limitation of the PowerShell or C# implementation - see HANDOFF.md for the
+exact registration steps.
 
 ## Row cap
 
-`sampleItems` is capped (`-SampleLimit`, default 20) via a CAML `<RowLimit>` query,
-**not** `-PageSize` on `Get-PnPListItem` — confirmed via documentation research
-(a PnP PowerShell GitHub issue and Microsoft Q&A) that `-PageSize` only controls
-per-request batch size and does not cap the total items returned; using it alone
-would silently pull the entire list.
-
-## Auth
-
-One `Connect-PnPOnline -Interactive` browser prompt per distinct site URL (grouped
-before connecting, so a solution referencing the same site from multiple lists/flows
-still only prompts once per site).
+`sampleItems` is capped (`sampleLimit`, default 20) via a CAML `<RowLimit>`
+query on `List.GetItems`, **not** a client-side `Take()` after fetching
+everything - confirmed via documentation research that pulling everything
+and truncating client-side would defeat the purpose of a sample cap for a
+large list.
 
 ## Failure modes
 
-On `PnP.PowerShell` module missing, auth cancelled, or a list not found: the script
-writes a clear message to stderr and exits non-zero for that site; `SharePointDataFetcher`
-catches this, logs it, and continues without that site rather than aborting the whole run.
+On auth cancelled, a list not found, or no access: `FetchList`/`FetchLiveAsync`
+catch the exception, log a clear message to stderr, and continue without that
+site/list rather than aborting the whole run.

@@ -28,9 +28,11 @@
   </ItemGroup>
 
   <ItemGroup>
-    <None Include="Resources\FetchSharePointData.ps1">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
+    <!-- Direct .NET SharePoint access (CSOM + interactive MSAL sign-in) - replaces the
+         old pwsh.exe + PnP.PowerShell shell-out, so this exe needs nothing installed
+         to run. See SharePointDataFetcher.cs's header comment for what's still
+         required regardless of language: a one-time Entra ID app registration. -->
+    <PackageReference Include="PnP.Framework" Version="1.21.0" />
   </ItemGroup>
 
 </Project>
