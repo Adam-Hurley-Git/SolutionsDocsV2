@@ -1,0 +1,32 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Standalone reshell tool, C# port of the original Shell/build.js prototype.
+    Deliberately has zero dependency on PowerDocu.Common or any documenter
+    project - it only ever reads plain files (Markdown, images, the
+    enricher's sharepoint-references.json) from a folder PowerDocu already
+    wrote, and never opens any of them for writing. Ships as a self-contained
+    exe so running it needs nothing installed - no Node.js, no PowerShell 7.
+  -->
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>disable</Nullable>
+    <DebugType>embedded</DebugType>
+    <RootNamespace>PowerDocu.Shell</RootNamespace>
+    <AssemblyName>PowerDocu.Shell</AssemblyName>
+    <InvariantGlobalization>true</InvariantGlobalization>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="assets\style.css">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="assets\nav.js">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
+</Project>
