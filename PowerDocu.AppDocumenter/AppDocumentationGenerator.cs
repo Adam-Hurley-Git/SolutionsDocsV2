@@ -155,6 +155,7 @@ namespace PowerDocu.AppDocumenter
             rootGraph.CreateLayout();
             rootGraph.ToPngFile(folderPath + "ScreenNavigation.png");
             rootGraph.ToSvgFile(folderPath + "ScreenNavigation.svg");
+            rootGraph.ToDotFile(folderPath + "ScreenNavigation.dot");
         }
 
         /// <summary>

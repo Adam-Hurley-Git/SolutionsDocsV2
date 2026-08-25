@@ -67,6 +67,7 @@ namespace PowerDocu.ClassicWorkflowDocumenter
                 string filename = "workflow";
                 rootGraph.ToPngFile(folderPath + filename + ".png");
                 rootGraph.ToSvgFile(folderPath + filename + ".svg");
+                rootGraph.ToDotFile(folderPath + filename + ".dot");
 
                 // Embed images as base64 in SVG for Word output compatibility
                 EmbedSvgImages(folderPath + filename + ".svg");

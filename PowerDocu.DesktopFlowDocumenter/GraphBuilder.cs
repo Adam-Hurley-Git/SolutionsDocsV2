@@ -444,6 +444,7 @@ namespace PowerDocu.DesktopFlowDocumenter
             string filename = filePrefix + (showSubactions ? "-detailed" : "");
             rootGraph.ToPngFile(folderPath + filename + ".png");
             rootGraph.ToSvgFile(folderPath + filename + ".svg");
+            rootGraph.ToDotFile(folderPath + filename + ".dot");
             EmbedImagesInSvg(folderPath + filename + ".svg");
             return filename;
         }

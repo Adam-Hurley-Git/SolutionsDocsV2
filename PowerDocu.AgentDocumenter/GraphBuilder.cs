@@ -1072,6 +1072,7 @@ namespace PowerDocu.AgentDocumenter
             string filename = topic.getTopicFileName() + (showSubactions ? "-detailed" : "");
             rootGraph.ToPngFile(folderPath + filename + ".png");
             rootGraph.ToSvgFile(folderPath + filename + ".svg");
+            rootGraph.ToDotFile(folderPath + filename + ".dot");
             // Post-process SVG to embed referenced PNG icons as base64 data URIs,
             // so the SVG is self-contained and renders correctly when viewed from HTML pages.
             EmbedImagesInSvg(folderPath + filename + ".svg");
@@ -1928,6 +1929,7 @@ namespace PowerDocu.AgentDocumenter
             string filename = "topic-dataflow";
             rootGraph.ToPngFile(folderPath + filename + ".png");
             rootGraph.ToSvgFile(folderPath + filename + ".svg");
+            rootGraph.ToDotFile(folderPath + filename + ".dot");
             EmbedImagesInSvg(folderPath + filename + ".svg");
             NotificationHelper.SendNotification("  - Created Topic Data Flow Graph");
         }

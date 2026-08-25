@@ -214,6 +214,7 @@ namespace PowerDocu.SolutionDocumenter
             //Generate image files
             rootGraph.ToSvgFile(content.folderPath + "dataverse.svg");
             rootGraph.ToPngFile(content.folderPath + "dataverse.png");
+            rootGraph.ToDotFile(content.folderPath + "dataverse.dot");
             //the following code is no longer required, as saving directly to PNG is now possible through GraphViz. Keeping it in case it is required in the future
             /*
             var svgDocument = SvgDocument.Open(content.folderPath + "dataverse.svg");

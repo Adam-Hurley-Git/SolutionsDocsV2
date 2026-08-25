@@ -243,8 +243,10 @@ namespace PowerDocu.SolutionDocumenter
             Directory.CreateDirectory(outputPath);
             string svgPath = Path.Combine(outputPath, "solution-components.svg");
             string pngPath = Path.Combine(outputPath, "solution-components.png");
+            string dotPath = Path.Combine(outputPath, "solution-components.dot");
             rootGraph.ToSvgFile(svgPath);
             rootGraph.ToPngFile(pngPath);
+            rootGraph.ToDotFile(dotPath);
         }
 
         private static (string FillColor, string FontColor, string Shape) GetNodeStyle(string componentType)

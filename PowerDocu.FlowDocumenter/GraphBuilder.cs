@@ -112,6 +112,7 @@ namespace PowerDocu.FlowDocumenter
             string filename = "flow" + (showSubactions ? "-detailed" : "");
             rootGraph.ToPngFile(folderPath + filename + ".png");
             rootGraph.ToSvgFile(folderPath + filename + ".svg");
+            rootGraph.ToDotFile(folderPath + filename + ".dot");
 
             //updating the SVG, embedding any images as base64 content so that they are shown in the Word output
             XmlDocument xmlDoc = new XmlDocument
