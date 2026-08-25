@@ -56,6 +56,8 @@ function Get-Settings {
     return [PSCustomObject]@{
         CoreExePath = $null
         EnricherExePath  = $null
+        ShellExePath     = $null
+        ClientId         = $null
         LastZipPath      = $null
         LastOutputFolder = $null
     }
@@ -109,6 +111,31 @@ function Get-OrPromptExePath {
         return $dlg.FileName
     }
     return $null
+}
+
+# ---------------------------------------------------------------------------
+# SharePoint sign-in Client ID - not a secret (it's a public app identifier),
+# so a plain remembered setting is fine, same as the exe paths above. Needed
+# because Microsoft retired the shared multi-tenant PnP app in Sept 2024 -
+# every tenant now needs its own Entra ID app registration. See HANDOFF.md
+# for the one-time registration steps. Only prompted when Step 2 actually
+# runs, not at startup, since plenty of runs never touch SharePoint.
+# ---------------------------------------------------------------------------
+
+function Get-OrPromptClientId {
+    if ($script:State.Settings.ClientId) { return $script:State.Settings.ClientId }
+
+    Add-Type -AssemblyName Microsoft.VisualBasic
+    $input = [Microsoft.VisualBasic.Interaction]::InputBox(
+        "SharePoint enrichment needs the Application (client) ID from a one-time Entra ID app registration - see HANDOFF.md for the exact steps.`n`nPaste it here (leave blank to skip SharePoint enrichment this run):",
+        'Atlas PP Doc - SharePoint sign-in',
+        ''
+    )
+    if ([string]::IsNullOrWhiteSpace($input)) { return $null }
+
+    $script:State.Settings.ClientId = $input.Trim()
+    Save-Settings $script:State.Settings
+    return $script:State.Settings.ClientId
 }
 
 # ---------------------------------------------------------------------------
@@ -339,6 +366,20 @@ function Start-Step2 {
         return
     }
 
+    $clientId = Get-OrPromptClientId
+    if (-not $clientId) {
+        Set-StepBadge $script:State.Controls.Step2BadgeBorder $script:State.Controls.Step2BadgeText 'Skipped'
+        Write-SummaryLine $script:State 'Step 2: SharePoint enrichment - skipped (no Client ID entered - see HANDOFF.md for how to register one)'
+        if ($script:State.Controls.AutoChainCheckBox.IsChecked) {
+            Start-Step3
+        } else {
+            $script:State.Controls.RunPipelineButton.IsEnabled = $true
+            $script:State.Controls.RunSpButton.IsEnabled = $true
+            $script:State.Controls.RunShellButton.IsEnabled = $true
+        }
+        return
+    }
+
     Set-StepBadge $script:State.Controls.Step2BadgeBorder $script:State.Controls.Step2BadgeText 'Running'
     Write-SummaryLine $script:State 'Step 2: SharePoint enrichment - started'
     Write-RawLine $script:State '=== Step 2: SharePoint enrichment ==='
@@ -352,7 +393,7 @@ function Start-Step2 {
 
     $psi = New-Object System.Diagnostics.ProcessStartInfo
     $psi.FileName = $script:State.EnricherExePath
-    $psi.Arguments = '"{0}" "{1}"' -f $script:State.ZipPath, $script:State.OutputFolder
+    $psi.Arguments = '"{0}" "{1}" "{2}"' -f $script:State.ZipPath, $script:State.OutputFolder, $clientId
     $psi.RedirectStandardOutput = $true
     $psi.RedirectStandardError = $true
     $psi.UseShellExecute = $false
@@ -475,39 +516,26 @@ function Start-Step2 {
 }
 
 # ---------------------------------------------------------------------------
-# Step 3 - Shell/build.js (reshell tool, via node)
+# Step 3 - PowerDocu.Shell.exe (reshell tool)
 #   Read-only on Step 1/2's output folder; writes to <OutputFolder>\Shell only.
 #   Never blocks on Step 2 having run - it works from whatever Step 1 (and,
-#   if present, Step 2) actually wrote, nothing more is required.
+#   if present, Step 2) actually wrote, nothing more is required. Self-
+#   contained exe - nothing to install to run it, unlike the old Node.js
+#   version this replaced.
 # ---------------------------------------------------------------------------
 
-function Get-ShellScriptCandidates {
+function Get-ShellExeCandidates {
     @(
-        (Join-Path $ScriptDir 'bin\Shell\build.js')
-        (Join-Path $RepoRoot 'Shell\build.js')
+        (Join-Path $ScriptDir 'bin\Shell\PowerDocu.Shell.exe')
+        (Join-Path $RepoRoot 'PowerDocu.Shell\bin\Release\net10.0\PowerDocu.Shell.exe')
+        (Join-Path $RepoRoot 'PowerDocu.Shell\bin\Debug\net10.0\PowerDocu.Shell.exe')
     )
 }
 
-function Get-NodeExePath {
-    $cmd = Get-Command node -ErrorAction SilentlyContinue
-    if ($cmd) { return $cmd.Source }
-    return $null
-}
-
 function Start-Step3 {
-    $scriptPath = $script:State.ShellScriptPath
-    if (-not $scriptPath -or -not (Test-Path $scriptPath)) {
+    if (-not $script:State.ShellExePath -or -not (Test-Path $script:State.ShellExePath)) {
         Set-StepBadge $script:State.Controls.Step3BadgeBorder $script:State.Controls.Step3BadgeText 'Failed'
-        Write-SummaryLine $script:State 'Step 3: Custom view - failed (Shell/build.js not located)'
-        $script:State.Controls.RunPipelineButton.IsEnabled = $true
-        $script:State.Controls.RunSpButton.IsEnabled = $true
-        $script:State.Controls.RunShellButton.IsEnabled = $true
-        return
-    }
-    $nodePath = Get-NodeExePath
-    if (-not $nodePath) {
-        Set-StepBadge $script:State.Controls.Step3BadgeBorder $script:State.Controls.Step3BadgeText 'Failed'
-        Write-SummaryLine $script:State 'Step 3: Custom view - failed (Node.js not found on this machine - install it, then retry)'
+        Write-SummaryLine $script:State 'Step 3: Custom view - failed (PowerDocu.Shell.exe not located)'
         $script:State.Controls.RunPipelineButton.IsEnabled = $true
         $script:State.Controls.RunSpButton.IsEnabled = $true
         $script:State.Controls.RunShellButton.IsEnabled = $true
@@ -516,7 +544,7 @@ function Start-Step3 {
 
     Set-StepBadge $script:State.Controls.Step3BadgeBorder $script:State.Controls.Step3BadgeText 'Running'
     Write-SummaryLine $script:State 'Step 3: Custom view - started'
-    Write-RawLine $script:State '=== Step 3: Custom view (Shell/build.js) ==='
+    Write-RawLine $script:State '=== Step 3: Custom view (PowerDocu.Shell.exe) ==='
     $script:State.Controls.RunPipelineButton.IsEnabled = $false
     $script:State.Controls.RunSpButton.IsEnabled = $false
     $script:State.Controls.RunShellButton.IsEnabled = $false
@@ -525,8 +553,8 @@ function Start-Step3 {
     $script:State.Step3ExitPending = $false
 
     $psi = New-Object System.Diagnostics.ProcessStartInfo
-    $psi.FileName = $nodePath
-    $psi.Arguments = '"{0}" "{1}"' -f $scriptPath, $script:State.OutputFolder
+    $psi.FileName = $script:State.ShellExePath
+    $psi.Arguments = '"{0}"' -f $script:State.OutputFolder
     $psi.RedirectStandardOutput = $true
     $psi.RedirectStandardError = $true
     $psi.UseShellExecute = $false
@@ -549,7 +577,7 @@ function Start-Step3 {
         Unregister-Event -SourceIdentifier $outId -ErrorAction SilentlyContinue
         Unregister-Event -SourceIdentifier $errId -ErrorAction SilentlyContinue
         Set-StepBadge $script:State.Controls.Step3BadgeBorder $script:State.Controls.Step3BadgeText 'Failed'
-        Write-SummaryLine $script:State 'Step 3: Custom view - failed (could not start node)'
+        Write-SummaryLine $script:State 'Step 3: Custom view - failed (could not start PowerDocu.Shell.exe)'
         $script:State.Controls.RunPipelineButton.IsEnabled = $true
         $script:State.Controls.RunSpButton.IsEnabled = $true
         $script:State.Controls.RunShellButton.IsEnabled = $true
@@ -638,7 +666,7 @@ Set-StepBadge $Controls.Step3BadgeBorder $Controls.Step3BadgeText 'Pending'
 
 $script:State.CoreExePath = Get-OrPromptExePath -SettingKeyName 'CoreExePath' -Candidates (Get-CoreExeCandidates) -DisplayName 'PowerDocu.exe (core documentation generator)'
 $script:State.EnricherExePath  = Get-OrPromptExePath -SettingKeyName 'EnricherExePath'  -Candidates (Get-EnricherExeCandidates)  -DisplayName 'PowerDocu.SharePointEnricher.exe (SharePoint enrichment tool)'
-$script:State.ShellScriptPath = (Get-ShellScriptCandidates | Where-Object { Test-Path $_ } | Select-Object -First 1)
+$script:State.ShellExePath = Get-OrPromptExePath -SettingKeyName 'ShellExePath' -Candidates (Get-ShellExeCandidates) -DisplayName 'PowerDocu.Shell.exe (custom view / reshell tool)'
 
 # ---------------------------------------------------------------------------
 # Event wiring

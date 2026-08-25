@@ -1,17 +1,15 @@
 <#
-    DEV-MACHINE ONLY. Publishes both pipeline executables (self-contained, win-x64)
-    into PipelineUI\bin\, and copies the Shell/ reshell tool alongside them, so this
-    whole PipelineUI folder plus the root "Atlas PP Doc.vbs" can be zipped and copied
-    to another computer and just run - no repo clone, no .NET SDK needed there.
+    DEV-MACHINE ONLY. Publishes all three pipeline executables (self-contained,
+    win-x64) into PipelineUI\bin\, so this whole PipelineUI folder plus the root
+    "Atlas PP Doc.vbs" can be zipped and copied to another computer and just
+    run - no repo clone, no .NET SDK, nothing else to install there at all.
 
     Requires the .NET 10 SDK on THIS machine (the one running this script).
     Run it again any time the source changes and you want to refresh the package.
 
-    Not bundled by this script, still required on the TARGET machine:
-      - pwsh.exe (PowerShell 7+)
-      - the PnP.PowerShell module (Install-Module PnP.PowerShell)
-        - what the SharePoint enrichment step shells out to for the live fetch
-      - Node.js (for Shell/build.js, the reshell step)
+    Nothing else is required on the TARGET machine. Step 2 (SharePoint
+    enrichment) still needs a one-time Entra ID app registration - see
+    HANDOFF.md - but that is tenant configuration, not software to install.
 #>
 
 $ErrorActionPreference = 'Stop'
@@ -38,9 +36,12 @@ dotnet publish (Join-Path $RepoRoot 'PowerDocu.SharePointEnricher\PowerDocu.Shar
     -o $EnricherOut
 if ($LASTEXITCODE -ne 0) { throw 'Publishing PowerDocu.SharePointEnricher failed.' }
 
-Write-Host "Copying Shell/ (reshell tool - script files, nothing to compile)..." -ForegroundColor Cyan
-if (Test-Path $ShellOut) { Remove-Item -Recurse -Force $ShellOut }
-Copy-Item (Join-Path $RepoRoot 'Shell') $ShellOut -Recurse
+Write-Host "Publishing PowerDocu.Shell.exe (self-contained, win-x64)..." -ForegroundColor Cyan
+dotnet publish (Join-Path $RepoRoot 'PowerDocu.Shell\PowerDocu.Shell.csproj') `
+    -c Release -r win-x64 --self-contained true `
+    -p:PublishSingleFile=false `
+    -o $ShellOut
+if ($LASTEXITCODE -ne 0) { throw 'Publishing PowerDocu.Shell failed.' }
 
 Write-Host ""
 Write-Host "Done. Packaged into:" -ForegroundColor Green
@@ -49,6 +50,6 @@ Write-Host "  $EnricherOut"
 Write-Host "  $ShellOut"
 Write-Host ""
 Write-Host "To move to another computer: copy the repo root's 'Atlas PP Doc.vbs' together with this" -ForegroundColor Green
-Write-Host "entire PipelineUI folder (including the bin\ subfolder just created). No repo clone or" -ForegroundColor Green
-Write-Host ".NET SDK is needed on the target machine - only pwsh.exe + PnP.PowerShell (SharePoint" -ForegroundColor Green
-Write-Host "step) and Node.js (reshell step). See README.md." -ForegroundColor Green
+Write-Host "entire PipelineUI folder (including the bin\ subfolder just created). No repo clone, no" -ForegroundColor Green
+Write-Host ".NET SDK, no PowerShell 7, no Node.js - nothing to install on the target machine at all." -ForegroundColor Green
+Write-Host "See README.md for the one thing Step 2 still needs: a one-time Entra ID app registration." -ForegroundColor Green
